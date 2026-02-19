@@ -24,6 +24,9 @@ APlayerHandler::APlayerHandler()
 	CharacterMovementComponent = GetCharacterMovement();
 
 	PlayerStateMachine = CreateDefaultSubobject<UPlayerStateMachine>(TEXT("PlayerStateMachine"));
+	
+	cameraYaw = CameraLocation->GetRelativeRotation().Yaw;
+	cameraPitch = CameraLocation->GetRelativeRotation().Pitch;
 }
 
 // Called when the game starts or when spawned
@@ -39,7 +42,10 @@ void APlayerHandler::BeginPlay()
 		}
 	}
 
+	playerMass = CharacterMovementComponent->Mass;
+
 	baseMovementSpeed = CharacterMovementComponent->MaxWalkSpeed;
+	playerEquipmentCenter = Cast<UChildActorComponent>(PlayerEquipmentCenterRef.GetComponent(this));
 }
 
 // Called every frame
@@ -50,6 +56,33 @@ void APlayerHandler::Tick(float DeltaTime)
 	if(!PlayerStateMachine->IsMoving())
 	{
 		HandleMovementCameraTilt(0.f);
+	}
+
+	if (PlayerStateMachine->IsMoving() && PlayerStateMachine->IsSprinting() && CharacterMovementComponent->IsMovingOnGround())
+	{
+		DecreaseStamina(staminaSprintCostRate * DeltaTime);
+	}
+
+	if(staminaRegenDelayTimer > 0)
+	{
+		staminaRegenDelayTimer -= DeltaTime;
+	}
+
+	TurnToCamera();
+
+	if(currentStamina < maxStamina && staminaRegenDelayTimer <= 0)
+	{
+		float finalStaminaRegenRate = staminaRegenRate;
+
+		if (PlayerStateMachine->IsBlocking())
+			finalStaminaRegenRate *= staminaBlockingMultiplier;
+
+		currentStamina += finalStaminaRegenRate * DeltaTime;
+		
+		if(currentStamina > maxStamina)
+		{
+			currentStamina = maxStamina;
+		}
 	}
 }
 
@@ -69,6 +102,7 @@ void APlayerHandler::SetupPlayerInputComponent(UInputComponent* PlayerInputCompo
 		EnhancedInputComponent->BindAction(WalkActionInput, ETriggerEvent::Started, this, &APlayerHandler::WalkAction);
 		EnhancedInputComponent->BindAction(WalkActionInput, ETriggerEvent::Completed, this, &APlayerHandler::WalkAction);
 		EnhancedInputComponent->BindAction(CrouchActionInput, ETriggerEvent::Started, this, &APlayerHandler::CrouchAction);
+		EnhancedInputComponent->BindAction(DodgeActionInput, ETriggerEvent::Started, this, &APlayerHandler::DodgeAction);
 	}
 }
 
@@ -83,7 +117,9 @@ void APlayerHandler::HandleMovementCameraTilt(float value)
 
 void APlayerHandler::JumpAction(const FInputActionValue& Value)
 {
-	Jump();
+	if (CharacterMovementComponent->CanEverJump() && DecreaseStamina(staminaJumpCost)) {
+		Jump();
+	}
 }
 
 void APlayerHandler::MoveAction(const FInputActionValue& Value)
@@ -94,13 +130,14 @@ void APlayerHandler::MoveAction(const FInputActionValue& Value)
 		{
 			HandleMovementCameraTilt(0.f);
 			PlayerStateMachine->SetStateMoving(false);
+			currentMovementDirection = FVector::ZeroVector;
 			return;
 		}
 
 		//Get the 2D vector of Value
 		FVector2D MovementVector = Value.Get<FVector2D>() * currentMovementSpeedMultiplier;
 
-		const FRotator Rotation = Controller->GetControlRotation();
+		const FRotator Rotation = CameraLocation->GetComponentRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
 
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
@@ -108,6 +145,8 @@ void APlayerHandler::MoveAction(const FInputActionValue& Value)
 
 		AddMovementInput(ForwardDirection, MovementVector.Y);
 		AddMovementInput(RightDirection, MovementVector.X);
+
+		currentMovementDirection = ForwardDirection * MovementVector.Y + RightDirection * MovementVector.X;
 
 		HandleMovementCameraTilt(MovementVector.X);
 
@@ -121,9 +160,22 @@ void APlayerHandler::LookAction(const FInputActionValue& Value)
 	{
 		//Get the 2D vector of Value
 		FVector2D LookAxisVector = Value.Get<FVector2D>();
-		AddControllerYawInput(LookAxisVector.X);
-		AddControllerPitchInput(-LookAxisVector.Y);
+		//AddControllerYawInput(LookAxisVector.X);
+		//AddControllerPitchInput(-LookAxisVector.Y);
+
+		cameraYaw += LookAxisVector.X * lookSensitivity;
+		cameraPitch += LookAxisVector.Y * lookSensitivity;
+		cameraPitch = FMath::Clamp(cameraPitch, minPitch, maxPitch);
+
+		CameraLocation->SetRelativeRotation(FRotator(cameraPitch, cameraYaw, 0.0f));
 	}
+}
+
+void APlayerHandler::TurnToCamera()
+{
+	FRotator cameraRotation = CameraLocation->GetComponentRotation();
+	//Lerp equipment to camera rotation
+	playerEquipmentCenter->SetWorldRotation(FMath::Lerp(playerEquipmentCenter->GetComponentRotation(), cameraRotation, turnSpeed));
 }
 
 void APlayerHandler::SprintAction(const FInputActionValue& Value)
@@ -166,5 +218,34 @@ void APlayerHandler::CrouchAction(const FInputActionValue& Value)
 		UnCrouch();
 		PlayerStateMachine->SetStateCrouching(false);
 	}
+}
+
+void APlayerHandler::DodgeAction(const FInputActionValue& Value)
+{
+	if (!DecreaseStamina(staminaJumpCost))
+		return;
+
+	if(currentMovementDirection.IsZero())
+	{
+		LaunchCharacter(FVector::ForwardVector * (dodgeForce * CharacterMovementComponent->Mass), true, true);
+	}
+	else {
+		LaunchCharacter(currentMovementDirection.GetSafeNormal() * (dodgeForce * CharacterMovementComponent->Mass), true, true);
+	}
+}
+
+bool APlayerHandler::DecreaseStamina(float value)
+{
+	if (currentStamina <= 0.0f)
+		return false;
+
+	currentStamina -= value;
+
+	if(currentStamina < 0.0f)
+		currentStamina = 0.0f;
+
+	staminaRegenDelayTimer = staminaRegenDelayTime;
+
+	return true;
 }
 

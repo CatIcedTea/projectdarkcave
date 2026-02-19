@@ -36,6 +36,7 @@ private:
 	bool bIsMoving = false;
 	bool bIsSprinting = false;
 	bool bIsWalking = false;
+	bool bIsBlocking = false;
 
 public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State Machine")
@@ -43,17 +44,33 @@ public:
 
 	void SetState(EPlayerState newState);
 
+	UFUNCTION(BlueprintCallable)
 	void SetStateIdle(bool val);
+	UFUNCTION(BlueprintCallable)
 	void SetStateFalling(bool val);
+	UFUNCTION(BlueprintCallable)
 	void SetStateWalking(bool val);
+	UFUNCTION(BlueprintCallable)
 	void SetStateMoving(bool val);
+	UFUNCTION(BlueprintCallable)
 	void SetStateSprinting(bool val);
+	UFUNCTION(BlueprintCallable)
 	void SetStateCrouching(bool val);
+	UFUNCTION(BlueprintCallable)
+	void SetStateBlocking(bool val);
 
+	UFUNCTION(BlueprintCallable)
 	bool IsIdle();
+	UFUNCTION(BlueprintCallable)
 	bool IsFalling();
+	UFUNCTION(BlueprintCallable)
 	bool IsWalking();
+	UFUNCTION(BlueprintCallable)
 	bool IsMoving();
+	UFUNCTION(BlueprintCallable)
 	bool IsSprinting();
+	UFUNCTION(BlueprintCallable)
 	bool IsCrouching();
+	UFUNCTION(BlueprintCallable)
+	bool IsBlocking();
 };

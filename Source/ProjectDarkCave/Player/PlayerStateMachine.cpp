@@ -53,6 +53,11 @@ void UPlayerStateMachine::SetStateCrouching(bool val)
 	bIsCrouching = val;
 }
 
+void UPlayerStateMachine::SetStateBlocking(bool val)
+{
+	bIsBlocking = val;
+}
+
 bool UPlayerStateMachine::IsIdle()
 {
 	return !bIsMoving && !bIsWalking && !bIsSprinting && !bIsCrouching;
@@ -76,4 +81,9 @@ bool UPlayerStateMachine::IsSprinting()
 bool UPlayerStateMachine::IsCrouching()
 {
 	return bIsCrouching;
+}
+
+bool UPlayerStateMachine::IsBlocking()
+{
+	return bIsBlocking;
 }
