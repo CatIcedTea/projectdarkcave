@@ -4,6 +4,10 @@
 #include "GameFramework/Character.h"
 #include "InputActionValue.h"
 #include "ProjectDarkCave/Player/PlayerStateMachine.h"
+#include <Components/PointLightComponent.h>
+#include <ProjectDarkCave/InteractableInterface.h>
+#include <ProjectDarkCave/Systems/Inventory.h>
+#include <ProjectDarkCave/Systems/HealthComponent.h>
 #include "PlayerHandler.generated.h"
 
 UCLASS()
@@ -29,11 +33,20 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "References")
 	FComponentReference PlayerEquipmentCenterRef;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "References")
+	FComponentReference PlayerLightRef;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bIsAttacking = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bIsAttackingRight = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float maxStamina = 20.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float currentMaxStamina = maxStamina;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float currentStamina = maxStamina;
@@ -60,10 +73,41 @@ public:
 	float dodgeForce = 15.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float maxLightFuel = 5.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float currentLightFuel = maxLightFuel;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float lightFuelConsumptionRate = 0.1f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float hungerConsumptionRate = 0.1f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	bool bCanDoAction = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bLightIsOn = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	bool bLightIsTransitioning = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float interactionDistance = 200.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FString interactableTooltip = "";
 
 	UFUNCTION(BlueprintCallable)
 	bool DecreaseStamina(float value);
+
+	UFUNCTION(BlueprintCallable)
+	void AddLightFuel(float value);
+
+	UFUNCTION(BlueprintCallable)
+	void RestoreCurrentMaxStamina(float value);
+
 
 private:
 	float currentMovementSpeedMultiplier = 1.0f;
@@ -76,12 +120,21 @@ private:
 
 	FVector currentMovementDirection;
 
-	virtual void TurnToCamera();
+	void TurnToCamera();
 
 	UChildActorComponent* playerEquipmentCenter;
+	
+	UPointLightComponent* playerLight;
 
 	float cameraYaw;
 	float cameraPitch;
+
+	FVector interactionTraceStart;
+	FVector interactionTraceEnd;
+
+	IInteractableInterface* DoInteractionTrace();
+
+	IInteractableInterface* currentInteractable;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera")
@@ -106,6 +159,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UPlayerStateMachine* PlayerStateMachine;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UInventory* PlayerInventory;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UHealthComponent* PlayerHealthComponent;
 
 	//Default Input Mapping Context
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
@@ -132,6 +191,27 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	UInputAction* DodgeActionInput;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* UseLightActionInput;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* InteractActionInput;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* Slot1ActionInput;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* Slot2ActionInput;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* Slot3ActionInput;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* Slot4ActionInput;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	UInputAction* Slot5ActionInput;
+
 	UPROPERTY(EditAnywhere)
 	float sprintSpeedMultiplier = 2.0f;
 
@@ -153,4 +233,18 @@ protected:
 	void CrouchAction(const FInputActionValue& Value);
 
 	void DodgeAction(const FInputActionValue& Value);
+
+	void UseLightAction(const FInputActionValue& Value);
+
+	void InteractAction(const FInputActionValue& Value);
+
+	void Slot1Action(const FInputActionValue& Value);
+
+	void Slot2Action(const FInputActionValue& Value);
+
+	void Slot3Action(const FInputActionValue& Value);
+
+	void Slot4Action(const FInputActionValue& Value);
+
+	void Slot5Action(const FInputActionValue& Value);
 };
